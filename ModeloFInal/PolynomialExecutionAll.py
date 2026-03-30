@@ -18,15 +18,16 @@ scripts = [
     os.path.join("models", "ShymaliyModel.py"),
     os.path.join("models", "LegendreModel.py"),
     os.path.join("models", "ChebyshevModel.py"),
+    os.path.join("models", "LinealModel.py"),
 ]
 
 def run_script(script):
     if not os.path.exists(script):
-        print(f"⚠️ No encuentro el archivo: {script}")
+        print(f"No encuentro el archivo: {script}")
         print("Ruta revisada:", os.path.abspath(script))
         return
 
-    print(f"🚀 Ejecutando: {script}")
+    print(f"Ejecutando: {script} ...")
     
     # Ejecución limpia y portable
     result = subprocess.run(
@@ -36,12 +37,12 @@ def run_script(script):
     )
 
     if result.returncode == 0:
-        print(f"✅ Éxito: {script}")
+        print(f"Éxito: {script}")
     else:
-        print(f"❌ Error en {script}:\n{result.stderr}")
+        print(f"Error en {script}:\n{result.stderr}")
 
 if __name__ == "__main__":
-    print(f"💻 Usando Python desde: {PYTHON_EXE}")
+    print(f"Entorno Virtual: {PYTHON_EXE}")
     
     num_procesos = min(len(scripts), multiprocessing.cpu_count())
     

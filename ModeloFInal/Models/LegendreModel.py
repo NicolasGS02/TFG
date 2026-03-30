@@ -18,12 +18,14 @@ class PolynomialLegendre(tf.keras.layers.Layer):
 
     def build(self, input_shape):
         input_dim_leg = input_shape[-1]
+
         self.kernel_leg = self.add_weight(
             shape=(input_dim_leg * self.degree, self.units),
             initializer=tf.keras.initializers.GlorotUniform(),
             trainable=True,
             name="kernel_leg"
         )
+
         if self.use_bias:
             self.bias_leg = self.add_weight(
                 shape=(self.units,),
@@ -33,23 +35,42 @@ class PolynomialLegendre(tf.keras.layers.Layer):
             )
 
     def call(self, inputs):
-        x_leg = tf.cast(inputs, self.compute_dtype)
-        p_nm2_leg = tf.ones_like(x_leg)
-        p_nm1_leg = x_leg
-        features_leg = [p_nm1_leg]
+        # Convertimos la entrada al tipo de dato activo de la capa
+        input_values = tf.cast(inputs, self.compute_dtype)
 
-        for n in range(2, self.degree + 1):
-            n_float_leg = tf.cast(n, self.compute_dtype)
-            p_n_leg = ((2.0 * n_float_leg - 1.0) * x_leg * p_nm1_leg - (n_float_leg - 1.0) * p_nm2_leg) / n_float_leg
-            features_leg.append(p_n_leg)
-            p_nm2_leg = p_nm1_leg
-            p_nm1_leg = p_n_leg
+        # Valores iniciales de la recurrencia:
+        # P0(x) = 1
+        previous_previous_poly = tf.ones_like(input_values)
 
-        phi_leg = tf.concat(features_leg, axis=-1)
-        output_leg = tf.matmul(phi_leg, self.kernel_leg)
+        # P1(x) = x
+        previous_poly = input_values
+
+        # Empezamos guardando el primer polinomio
+        legendre_features = [previous_poly]
+
+        # Generamos el resto de grados usando la recurrencia de Legendre
+        for degree_index in range(2, self.degree + 1):
+            current_degree = tf.cast(degree_index, self.compute_dtype)
+
+            #Esto es el polinomio de Legendre pero calculado con la Recurrencia de Bonnet
+            current_poly = ((2.0 * current_degree - 1.0) * input_values * previous_poly - (current_degree - 1.0) * previous_previous_poly) / current_degree
+
+            legendre_features.append(current_poly)
+
+            # SIguientes iteraciones
+            previous_previous_poly = previous_poly
+            previous_poly = current_poly
+
+        # Unimos todas las bases polinómicas en un solo vector
+        polynomial_basis = tf.concat(legendre_features, axis=-1)
+
+        # Proyección lineal final, equivalente a una capa densa
+        output_values = tf.matmul(polynomial_basis, self.kernel_leg)
+
         if self.use_bias:
-            output_leg = tf.nn.bias_add(output_leg, self.bias_leg)
-        return output_leg
+            output_values = tf.nn.bias_add(output_values, self.bias_leg)
+
+        return output_values
 
 # ===== MODELO =====
 def PolynomialDenseCreator_leg(degree_leg, input_dim_leg):

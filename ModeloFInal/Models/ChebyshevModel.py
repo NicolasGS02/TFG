@@ -16,7 +16,8 @@ class ChebyshevLayer(layers.Layer):
         self.degree = degree
 
     def build(self, input_shape):
-        self.w_cheb = self.add_weight(
+        # Pesos para cada grado del polinomio
+        self.w = self.add_weight(
             shape=(self.degree + 1, input_shape[-1], self.units),
             initializer="glorot_uniform",
             trainable=True,
@@ -24,20 +25,30 @@ class ChebyshevLayer(layers.Layer):
         )
 
     def call(self, inputs):
-        inputs_cheb = tf.cast(inputs, self.compute_dtype)
-        t_n_minus_1_cheb = tf.ones_like(inputs_cheb)
-        t_n_cheb = inputs_cheb
-        
-        output_cheb = tf.matmul(t_n_minus_1_cheb, self.w_cheb[0]) + \
-                      tf.matmul(t_n_cheb, self.w_cheb[1])
-        
-        for i in range(2, self.degree + 1):
-            t_n_plus_1_cheb = 2.0 * inputs_cheb * t_n_cheb - t_n_minus_1_cheb
-            output_cheb += tf.matmul(t_n_plus_1_cheb, self.w_cheb[i])
-            t_n_minus_1_cheb = t_n_cheb
-            t_n_cheb = t_n_plus_1_cheb
-            
-        return output_cheb
+        # Valores iniciales de la recurrencia de Chebyshev
+        # T0(x) = 1
+        previous_previous_poly = tf.ones_like(inputs)
+
+        # T1(x) = x
+        previous_poly = inputs
+
+        # Salida inicial con los dos primeros grados
+        output_values = (
+            tf.matmul(previous_previous_poly, self.w[0]) +
+            tf.matmul(previous_poly, self.w[1])
+        )
+
+        # Aqui de forma recursiva generamos los otros grados 
+        for degree_index in range(2, self.degree + 1):
+            current_poly = 2.0 * inputs * previous_poly - previous_previous_poly
+
+            output_values += tf.matmul(current_poly, self.w[degree_index])
+
+            # Preparamos la siguiente iteración
+            previous_previous_poly = previous_poly
+            previous_poly = current_poly
+
+        return output_values
 
 # ===== MODELO =====
 def PolynomialDenseCreator_Cheb(degree_Cheb, input_dim_Cheb):

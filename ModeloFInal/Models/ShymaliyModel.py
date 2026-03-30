@@ -23,37 +23,40 @@ class ShmaliyLayer(layers.Layer):
         )
 
     def call(self, inputs):
-        # 1. Mapeo de [-1, 1] a [0, N-1] para la naturaleza discreta de Shmaliy
-        # k = (x + 1) * (N-1) / 2
-        k = (inputs + 1.0) * (self.N - 1.0) / 2.0
-        
-        # 2. Inicialización de la recurrencia
-        # S0 = 1
-        # S1 = 1 - (2*k)/(N-1)
-        s_n_minus_1 = tf.ones_like(k)
-        s_n = 1.0 - (2.0 * k) / (self.N - 1.0)
-        
-        output = tf.matmul(s_n_minus_1, self.w[0]) + tf.matmul(s_n, self.w[1])
-        
-        # 3. Relación de recurrencia de Shmaliy (Hahn alpha=0, beta=0)
-        for n in range(1, self.degree):
-            # Coeficientes de la recurrencia
-            # (n+1)(N-1-n) S_{n+1} = (2n+1)(N-1-2k) S_n - n(N+n) S_{n-1}
-            denom = (n + 1.0) * (self.N - 1.0 - n)
-            term1 = ((2.0 * n + 1.0) * (self.N - 1.0 - 2.0 * k) * s_n) / denom
-            term2 = (n * (self.N + n) * s_n_minus_1) / denom
-            
-            s_n_plus_1 = term1 - term2
-            
-            # Sumar al output
-            output += tf.matmul(s_n_plus_1, self.w[n+1])
-            
-            # Actualizar estados
-            s_n_minus_1 = s_n
-            s_n = s_n_plus_1
-            
-        return output
+        # Llevamos la entrada desde [-1, 1] al rango discreto [0, N-1]
+        discrete_positions = (inputs + 1.0) * (self.N - 1.0) / 2.0
 
+        # Primeros valores de la recurrencia
+        # S0 = 1
+        previous_previous_poly = tf.ones_like(discrete_positions)
+
+        # S1 = 1 - (2k)/(N-1)
+        previous_poly = 1.0 - (2.0 * discrete_positions) / (self.N - 1.0)
+
+        # Salida inicial con los dos primeros grados
+        output_values = (
+            tf.matmul(previous_previous_poly, self.w[0]) +
+            tf.matmul(previous_poly, self.w[1])
+        )
+
+        # Y aqui de forma recursiva al tener los primeros calculamos el resto de términos hasta el grado deseado
+        for degree_index in range(1, self.degree):
+            denominator = (degree_index + 1.0) * (self.N - 1.0 - degree_index)
+
+            recurrence_term = ((2.0 * degree_index + 1.0) * (self.N - 1.0 - 2.0 * discrete_positions)  * previous_poly) / denominator
+
+            correction_term = (degree_index * (self.N + degree_index)* previous_previous_poly) / denominator
+
+            current_poly = recurrence_term - correction_term
+
+            # Añadimos la contribución del nuevo grado
+            output_values += tf.matmul(current_poly, self.w[degree_index + 1])
+
+            # Actualizamos
+            previous_previous_poly = previous_poly
+            previous_poly = current_poly
+
+        return output_values
 # ===== MODELO =====
 def PolynomialDenseCreator_Shm(degree_Shm,nValues_Shm,input_dim_Shm):
     inputPoli_Shm = keras.Input(shape=(input_dim_Shm,))
