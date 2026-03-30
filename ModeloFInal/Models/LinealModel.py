@@ -109,7 +109,7 @@ for train_index, test_index in tqdm(skf.split(X, y), total=10):
 def save_results_to_csv_Lineal(avg_loss, avg_acc, filename="temp_res_lineal.csv"):
     # Definir la ruta de la carpeta (un nivel arriba '..', carpeta 'resultados')
     # O simplemente "resultados" si prefieres que esté en la misma carpeta
-    carpeta_destino = os.path.join("..", "resultados")
+    carpeta_destino = "resultados"
     os.makedirs(carpeta_destino, exist_ok=True)
     ruta_completa = os.path.join(carpeta_destino, filename)
     
