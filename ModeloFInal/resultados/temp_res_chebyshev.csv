@@ -1,0 +1,6 @@
+Polinomio;Grado;Mejor_N;Loss_Promedio;Accuracy_Promedio
+Chebyshev;1;N/A;0.325586;0.865247
+Chebyshev;2;N/A;0.303596;0.873607
+Chebyshev;3;N/A;0.300588;0.88081
+Chebyshev;4;N/A;0.313387;0.877129
+Chebyshev;5;N/A;0.336556;0.87613
