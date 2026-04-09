@@ -2,21 +2,22 @@ import tensorflow as tf
 from tensorflow import keras
 from keras import layers
 from sklearn.preprocessing import MinMaxScaler
-from ucimlrepo import fetch_ucirepo 
+from ucimlrepo import fetch_ucirepo
+from sklearn.model_selection import StratifiedKFold, train_test_split
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import os
-from sklearn.model_selection import StratifiedKFold
+
 
 # ===== CAPA CHEBYSHEV =====
 class ChebyshevLayer(layers.Layer):
     def __init__(self, units, degree, **kwargs):
-        super(ChebyshevLayer, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.units = units
         self.degree = degree
 
     def build(self, input_shape):
-        # Pesos para cada grado del polinomio
         self.w = self.add_weight(
             shape=(self.degree + 1, input_shape[-1], self.units),
             initializer="glorot_uniform",
@@ -25,102 +26,169 @@ class ChebyshevLayer(layers.Layer):
         )
 
     def call(self, inputs):
-        # Valores iniciales de la recurrencia de Chebyshev
-        # T0(x) = 1
-        previous_previous_poly = tf.ones_like(inputs)
+        previous_previous_poly = tf.ones_like(inputs)  # T0
+        previous_poly = inputs                         # T1
 
-        # T1(x) = x
-        previous_poly = inputs
-
-        # Salida inicial con los dos primeros grados
         output_values = (
             tf.matmul(previous_previous_poly, self.w[0]) +
             tf.matmul(previous_poly, self.w[1])
         )
 
-        # Aqui de forma recursiva generamos los otros grados 
         for degree_index in range(2, self.degree + 1):
             current_poly = 2.0 * inputs * previous_poly - previous_previous_poly
-
             output_values += tf.matmul(current_poly, self.w[degree_index])
 
-            # Preparamos la siguiente iteración
             previous_previous_poly = previous_poly
             previous_poly = current_poly
 
         return output_values
 
+
 # ===== MODELO =====
-def PolynomialDenseCreator_Cheb(degree_Cheb, input_dim_Cheb):
-    inputPoli_Cheb = keras.Input(shape=(input_dim_Cheb,))
-    x_Cheb = ChebyshevLayer(32, degree=degree_Cheb)(inputPoli_Cheb)
-    x_Cheb = layers.Activation('swish')(x_Cheb)
-    x_Cheb = layers.Dense(16, activation='swish')(x_Cheb)
-    outputPoli_Cheb = layers.Dense(2, activation='softmax')(x_Cheb)
-    
-    model_Cheb = keras.Model(inputs=inputPoli_Cheb, outputs=outputPoli_Cheb)
-    model_Cheb.compile(
-        optimizer='adam',
-        loss='sparse_categorical_crossentropy',
-        metrics=['accuracy']
+def build_chebyshev_model(degree, input_dim):
+    inputs = keras.Input(shape=(input_dim,))
+    x = ChebyshevLayer(32, degree=degree)(inputs)
+    x = layers.Activation("swish")(x)
+    x = layers.Dense(16, activation="swish")(x)
+    outputs = layers.Dense(2, activation="softmax")(x)
+
+    model = keras.Model(inputs=inputs, outputs=outputs)
+    model.compile(
+        optimizer="adam",
+        loss="sparse_categorical_crossentropy",
+        metrics=["accuracy"]
     )
-    return model_Cheb
+    return model
 
-def calculator_Cheb(scores_Cheb, num_splits):
-    Totalloss_Cheb, Totalaccuracy_Cheb = 0, 0
-    for loss, accuracy in scores_Cheb:
-        Totalloss_Cheb += loss
-        Totalaccuracy_Cheb += accuracy
-    return Totalloss_Cheb/num_splits, Totalaccuracy_Cheb/num_splits
 
-def save_results_to_csv_Chebyshev(scoreMean_dict, degrees_list, filename="temp_res_chebyshev.csv"):
-    carpeta_destino = "resultados"
-    os.makedirs(carpeta_destino, exist_ok=True)
-    ruta_completa = os.path.join(carpeta_destino, filename)
-    
+# ===== PLOT =====
+def plot_cv_average_history_cheb(histories, degree, save_folder="resultados/imagenes"):
+    os.makedirs(save_folder, exist_ok=True)
+
+    max_epochs = max(len(h.history["loss"]) for h in histories)
+    epochs = np.arange(1, max_epochs + 1)
+
+    def get_metric(metric):
+        matrix = np.full((len(histories), max_epochs), np.nan)
+        for i, h in enumerate(histories):
+            values = h.history[metric]
+            matrix[i, :len(values)] = values
+        return np.nanmean(matrix, axis=0)
+
+    avg_loss = get_metric("loss")
+    avg_val_loss = get_metric("val_loss")
+    avg_acc = get_metric("accuracy")
+    avg_val_acc = get_metric("val_accuracy")
+
+    plt.figure(figsize=(14, 6))
+
+    plt.subplot(1, 2, 1)
+    plt.plot(epochs, avg_loss)
+    plt.plot(epochs, avg_val_loss)
+    plt.title(f"Pérdida Promedio - Chebyshev G{degree}")
+
+    plt.subplot(1, 2, 2)
+    plt.plot(epochs, avg_acc)
+    plt.plot(epochs, avg_val_acc)
+    plt.title(f"Accuracy Promedio - Chebyshev G{degree}")
+
+    plt.tight_layout()
+    file_path = os.path.join(save_folder, f"chebyshev_grado_{degree}.png")
+    plt.savefig(file_path, dpi=300, bbox_inches="tight")
+    plt.close()
+
+
+# ===== CSV =====
+def save_results_cheb( score_mean, degrees, filename="temp_res_chebyshev.csv"):
+    os.makedirs("resultados", exist_ok=True)
+
     data = []
-    for deg in degrees_list:
+    for deg in degrees:
         data.append({
             "Polinomio": "Chebyshev",
             "Grado": deg,
             "Mejor_N": "N/A",
-            "Loss_Promedio": round(scoreMean_dict[deg][0], 6),
-            "Accuracy_Promedio": round(scoreMean_dict[deg][1], 6)
+            "Loss_Promedio": round(score_mean[deg][0], 6),
+            "Accuracy_Promedio": round(score_mean[deg][1], 6)
         })
-    df_resultados = pd.DataFrame(data)
-    df_resultados.to_csv(ruta_completa, index=False, sep=';')
 
-# ===== PROCESAMIENTO =====
-magic_gamma_telescope_Cheb = fetch_ucirepo(id=159)
-X_Cheb = magic_gamma_telescope_Cheb.data.features.to_numpy()
-y_Cheb = magic_gamma_telescope_Cheb.data.targets.to_numpy()
+    pd.DataFrame(data).to_csv(
+        os.path.join("resultados", filename),
+        index=False,
+        sep=";"
+    )
 
-num_splits_Cheb = 10
-epochs_Cheb = 120
-degrees = [3, 4, 5]
-skf_Cheb = StratifiedKFold(n_splits=num_splits_Cheb, shuffle=True, random_state=1)
-score_Cheb = {deg: [] for deg in degrees}
 
-for train_index, test_index in skf_Cheb.split(X_Cheb, y_Cheb):
-    X_train_Cheb, X_test_Cheb = X_Cheb[train_index], X_Cheb[test_index]
-    y_train_Cheb, y_test_Cheb = y_Cheb[train_index], y_Cheb[test_index]
+# ===== EJECUCIÓN =====
+dataset = fetch_ucirepo(id=159)
+X = dataset.data.features.to_numpy()
+y = dataset.data.targets.to_numpy()
 
-    scaler_Cheb = MinMaxScaler(feature_range=(-1, 1))
-    X_train_scaled_Cheb = scaler_Cheb.fit_transform(X_train_Cheb)
-    X_test_scaled_Cheb = scaler_Cheb.transform(X_test_Cheb)
+degrees = [1,2,3,4,5]
+epochs = 120
+num_splits = 10
 
-    y_train_Cheb = (y_train_Cheb == 'g').astype(int)
-    y_test_Cheb = (y_test_Cheb == 'g').astype(int)
+skf = StratifiedKFold(n_splits=num_splits, shuffle=True, random_state=1)
+
+scores = {deg: [] for deg in degrees}
+histories = {deg: [] for deg in degrees}
+
+for train_idx, test_idx in skf.split(X, y):
+    X_train, X_test = X[train_idx], X[test_idx]
+    y_train, y_test = y[train_idx], y[test_idx]
+ 
+    y_train = (y_train == 'g').astype(int)
+    y_test = (y_test == 'g').astype(int)
+
+    # =========================
+    # 2) Validación interna estratificada
+    # =========================
+    X_subtrain, X_val, y_subtrain, y_val = train_test_split(
+        X_train,
+        y_train,
+        test_size=0.3,
+        stratify=y_train,
+        random_state=42
+    )
+
+
+    # =========================
+    # 3) Normalización
+    # =========================
+    scaler = MinMaxScaler(feature_range=(-1, 1))
+
+    X_subtrain = scaler.fit_transform(X_subtrain)
+    X_val = scaler.transform(X_val)
+    X_test = scaler.transform(X_test)
 
     for deg in degrees:
         tf.keras.backend.clear_session()
-        model = PolynomialDenseCreator_Cheb(deg, input_dim_Cheb=X_train_scaled_Cheb.shape[1])
-        model.fit(X_train_scaled_Cheb, y_train_Cheb, validation_split=0.2, epochs=epochs_Cheb, batch_size=32, verbose=0)
-        eval_result = model.evaluate(X_test_scaled_Cheb, y_test_Cheb, verbose=0)
-        score_Cheb[deg].append(eval_result)
 
-# Cálculo de promedios finales
-scoreMean_Cheb = {deg: calculator_Cheb(score_Cheb[deg], num_splits_Cheb) for deg in degrees}
+        model = build_chebyshev_model(deg, X_subtrain.shape[1])
 
-# Guardado final
-save_results_to_csv_Chebyshev(scoreMean_Cheb, degrees)
+        history = model.fit(
+            X_subtrain,
+            y_subtrain,
+            validation_data=(X_val, y_val),
+            epochs=epochs,
+            batch_size=32,
+            verbose=0
+        )
+
+        score = model.evaluate(X_test, y_test, verbose=0)
+
+        histories[deg].append(history)
+        scores[deg].append(score)
+
+score_mean = {
+    deg: (
+        np.mean([x[0] for x in scores[deg]]),
+        np.mean([x[1] for x in scores[deg]])
+    )
+    for deg in degrees
+}
+
+save_results_cheb(score_mean, degrees)
+
+for deg in degrees:
+    plot_cv_average_history_cheb(histories[deg], deg)

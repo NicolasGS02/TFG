@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import os
 from sklearn.model_selection import StratifiedKFold
+import matplotlib.pyplot as plt
 
 # ===== CAPA LEGENDRE =====
 class PolynomialLegendre(tf.keras.layers.Layer):
@@ -72,6 +73,56 @@ class PolynomialLegendre(tf.keras.layers.Layer):
 
         return output_values
 
+def plot_cv_average_history_leg(histories_leg, degree_leg, save_folder="resultados/imagenes"):
+    
+    # Crear carpeta si no existe
+    os.makedirs(save_folder, exist_ok=True)
+
+    max_epochs_leg = max([len(h.history['loss']) for h in histories_leg])
+    epochs_leg = np.arange(1, max_epochs_leg + 1)
+
+    def get_padded_metrics_leg(metric_name):
+        matrix_leg = np.full((len(histories_leg), max_epochs_leg), np.nan)
+
+        for i, h in enumerate(histories_leg):
+            data_leg = h.history[metric_name]
+            matrix_leg[i, :len(data_leg)] = data_leg
+
+        return np.nanmean(matrix_leg, axis=0)
+
+    avg_loss_leg = get_padded_metrics_leg('loss')
+    avg_val_loss_leg = get_padded_metrics_leg('val_loss')
+    avg_acc_leg = get_padded_metrics_leg('accuracy')
+    avg_val_acc_leg = get_padded_metrics_leg('val_accuracy')
+
+    plt.figure(figsize=(14, 6))
+
+    # Loss
+    plt.subplot(1, 2, 1)
+    plt.plot(epochs_leg, avg_loss_leg, label="Train")
+    plt.plot(epochs_leg, avg_val_loss_leg, label="Validation")
+    plt.title(f'Pérdida Promedio - Grado {degree_leg}')
+    plt.xlabel("Épocas")
+    plt.ylabel("Loss")
+    plt.legend()
+
+    # Accuracy
+    plt.subplot(1, 2, 2)
+    plt.plot(epochs_leg, avg_acc_leg, label="Train")
+    plt.plot(epochs_leg, avg_val_acc_leg, label="Validation")
+    plt.title(f'Precisión Promedio - Grado {degree_leg}')
+    plt.xlabel("Épocas")
+    plt.ylabel("Accuracy")
+    plt.legend()
+
+    plt.tight_layout()
+
+    # Guardado automático
+    file_path = os.path.join(save_folder, f"legendre_grado_{degree_leg}.png")
+    plt.savefig(file_path, dpi=300, bbox_inches="tight")
+
+    plt.close()
+
 # ===== MODELO =====
 def PolynomialDenseCreator_leg(degree_leg, input_dim_leg):
     inputPoli_leg = keras.Input(shape=(input_dim_leg,))
@@ -125,29 +176,78 @@ y_leg = magic_gamma_telescope_leg.data.targets.to_numpy()
 
 epochs_leg = 120
 num_splits_leg = 10
-degrees = [3, 4, 5]
+degrees = [1,2,3,4,5]
 
 skf_leg = StratifiedKFold(n_splits=num_splits_leg, shuffle=True, random_state=1)
+history_leg = {deg: [] for deg in degrees}
 score_leg = {deg: [] for deg in degrees}
 
+from sklearn.model_selection import StratifiedKFold, train_test_split
+
+skf_leg = StratifiedKFold(n_splits=num_splits_leg, shuffle=True, random_state=1)
+
+history_leg = {deg: [] for deg in degrees}
+score_leg = {deg: [] for deg in degrees}
+
+
+input_dim_leg = X_leg.shape[1]
+
+
 for train_index, test_index in skf_leg.split(X_leg, y_leg):
+
     X_train_leg, X_test_leg = X_leg[train_index], X_leg[test_index]
     y_train_leg, y_test_leg = y_leg[train_index], y_leg[test_index]
-
-    scaler_leg = MinMaxScaler(feature_range=(-1, 1))
-    X_train_scaled_leg = scaler_leg.fit_transform(X_train_leg)
-    X_test_scaled_leg = scaler_leg.transform(X_test_leg)
-
+ 
     y_train_leg = (y_train_leg == 'g').astype(int)
     y_test_leg = (y_test_leg == 'g').astype(int)
 
+    # =========================
+    # 2) Validación interna estratificada
+    # =========================
+    X_subtrain, X_val, y_subtrain, y_val = train_test_split(
+        X_train_leg,
+        y_train_leg,
+        test_size=0.3,
+        stratify=y_train_leg,
+        random_state=42
+    )
+
+
+ # =========================
+    # 3) Normalización
+    # =========================
+    scaler = MinMaxScaler(feature_range=(-1, 1))
+
+    X_subtrain = scaler.fit_transform(X_subtrain)
+    X_val = scaler.transform(X_val)
+    X_test_leg = scaler.transform(X_test_leg)
+
+# =========================
+# 4) Entrenamiento por grado
+# =========================
     for deg in degrees:
         tf.keras.backend.clear_session()
-        model = PolynomialDenseCreator_leg(deg, input_dim_leg=X_train_scaled_leg.shape[1])
-        model.fit(X_train_scaled_leg, y_train_leg, validation_split=0.2, epochs=epochs_leg, batch_size=32, verbose=0, callbacks=[createEarlyStoppingCallback_leg()])
-        eval_result = model.evaluate(X_test_scaled_leg, y_test_leg, verbose=0)
-        score_leg[deg].append(eval_result)
+
+        model = PolynomialDenseCreator_leg(deg, input_dim_leg)
+
+        history = model.fit(
+            X_subtrain,
+            y_subtrain,
+            validation_data=(X_val, y_val),
+            epochs=epochs_leg,
+            batch_size=32,
+            verbose=0
+        )
+
+        test_result = model.evaluate(X_test_leg, y_test_leg, verbose=0)
+
+        history_leg[deg].append(history)
+        score_leg[deg].append(test_result)
+
 
 scoreMean_leg = {deg: calculator_leg(score_leg[deg], num_splits_leg) for deg in degrees}
 
 save_results_to_csv_Legendre(scoreMean_leg, degrees)
+# Guardar gráficas
+for deg in degrees:
+    plot_cv_average_history_leg(history_leg[deg], deg)

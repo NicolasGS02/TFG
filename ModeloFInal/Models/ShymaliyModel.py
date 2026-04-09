@@ -97,9 +97,7 @@ def calculator_Shm(scores_Shm):
     return Totalloss_Shm/num_splits_Shm, Totalaccuracy_Shm/num_splits_Shm
 
 def save_results_to_csv_Shm(scoreMean_dict, search_results_dict, degrees_list, filename="temp_res_shmaliy.csv"):
-    """
-    Guarda los resultados en modeloFinal/resultados/temp_res_shmaliy.csv
-    """
+
     # 1. Definir la ruta de la carpeta (un nivel arriba '..', carpeta 'resultados')
     carpeta_destino = "resultados"
     
@@ -129,15 +127,50 @@ def save_results_to_csv_Shm(scoreMean_dict, search_results_dict, degrees_list, f
     # 4. Guardar el archivo en la ruta específica
     df_resultados.to_csv(ruta_completa, index=False, sep=';')
 
+def plot_cv_average_history_shm(histories, degree, save_folder="resultados/imagenes"):
+    os.makedirs(save_folder, exist_ok=True)
+
+    max_epochs = max(len(h.history["loss"]) for h in histories)
+    epochs = np.arange(1, max_epochs + 1)
+
+    def get_metric(metric):
+        matrix = np.full((len(histories), max_epochs), np.nan)
+        for i, h in enumerate(histories):
+            values = h.history[metric]
+            matrix[i, :len(values)] = values
+        return np.nanmean(matrix, axis=0)
+
+    avg_loss = get_metric("loss")
+    avg_val_loss = get_metric("val_loss")
+    avg_acc = get_metric("accuracy")
+    avg_val_acc = get_metric("val_accuracy")
+
+    plt.figure(figsize=(14, 6))
+
+    plt.subplot(1, 2, 1)
+    plt.plot(epochs, avg_loss)
+    plt.plot(epochs, avg_val_loss)
+    plt.title(f"Pérdida Promedio - Shmaliy G{degree}")
+
+    plt.subplot(1, 2, 2)
+    plt.plot(epochs, avg_acc)
+    plt.plot(epochs, avg_val_acc)
+    plt.title(f"Accuracy Promedio - Shmaliy G{degree}")
+
+    plt.tight_layout()
+    file_path = os.path.join(save_folder, f"shmaliy_grado_{degree}.png")
+    plt.savefig(file_path, dpi=300, bbox_inches="tight")
+    plt.close()
+
 
 # --- 3. CONFIGURACIÓN DE LA BÚSQUEDA ---
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import StratifiedKFold, train_test_split
 
 # ===== DATOS =====
 magic_gamma_telescope_Shm = fetch_ucirepo(id=159)
 
-X_Shm = magic_gamma_telescope_Shm.data.features 
-y_Shm = magic_gamma_telescope_Shm.data.targets 
+X_Shm = magic_gamma_telescope_Shm.data.features.to_numpy()
+y_Shm = magic_gamma_telescope_Shm.data.targets.to_numpy()
 
 
 # ===== HIPERPARÁMETROS =====
@@ -145,7 +178,7 @@ epochs_Shm = 120
 batch_size_Shm = 32
 input_dim_Shm = X_Shm.shape[1]
 num_splits_Shm = 10
-degrees = [3, 4, 5]
+degrees = [1,2,3,4,5]
 
 
 
@@ -190,7 +223,6 @@ for deg in degrees:
                 epochs=10, # Menos épocas para la fase de búsqueda
                 batch_size=64,
                 verbose=0,
-                callbacks=[tf.keras.callbacks.EarlyStopping(patience=5, restore_best_weights=True)],
                 validation_split=0.1
             )
             
@@ -202,7 +234,6 @@ for deg in degrees:
         search_results[deg][n_val] = avg_acc
 
 from sklearn.model_selection import StratifiedKFold
-from tqdm import tqdm
 
 skf_Shm = StratifiedKFold(n_splits=num_splits_Shm, shuffle=True, random_state=1)
 
@@ -210,25 +241,43 @@ history_Shm = {deg: [] for deg in degrees}
 score_Shm = {deg: [] for deg in degrees}
 
 
-for train_index, test_index in tqdm(skf_Shm.split(X_Shm, y_Shm), total=num_splits_Shm):
+for train_index, test_index in skf_Shm.split(X_Shm, y_Shm):
 
     X_train_Shm, X_test_Shm = X_Shm[train_index], X_Shm[test_index]
     y_train_Shm, y_test_Shm = y_Shm[train_index], y_Shm[test_index]
 
-    scaler_Shm = MinMaxScaler(feature_range=(-1, 1))
-    X_train_scaled_Shm = scaler_Shm.fit_transform(X_train_Shm)
-    X_test_scaled_Shm = scaler_Shm.transform(X_test_Shm)
-
     y_train_Shm = (y_train_Shm == 'g').astype(int)
     y_test_Shm = (y_test_Shm == 'g').astype(int)
+
+    # =========================
+    # 1) Validación interna estratificada
+    # =========================
+    X_subtrain_Shm, X_val_Shm, y_subtrain_Shm, y_val_Shm = train_test_split(
+        X_train_Shm,
+        y_train_Shm,
+        test_size=0.3,
+        stratify=y_train_Shm,
+        random_state=42
+    )
+
+    # =========================
+    # 2) Normalización
+    # =========================
+    scaler_Shm = MinMaxScaler(feature_range=(-1, 1))
+
+    X_subtrain_scaled_Shm = scaler_Shm.fit_transform(X_subtrain_Shm)
+    X_val_scaled_Shm = scaler_Shm.transform(X_val_Shm)
+    X_test_scaled_Shm = scaler_Shm.transform(X_test_Shm)
+
 
 
     for deg in degrees:
         tf.keras.backend.clear_session()
+
         best_n = max(search_results[deg], key=search_results[deg].get)
-        best_val = search_results[deg][best_n]
-        model = PolynomialDenseCreator_Shm(deg, best_n, input_dim_Shm=X_train_scaled_Shm.shape[1])
-        TranedModel = model.fit(X_train_scaled_Shm, y_train_Shm, validation_split=0.2, epochs=epochs_Shm, batch_size=32, verbose=0)
+
+        model = PolynomialDenseCreator_Shm(deg, best_n, input_dim_Shm=X_subtrain_scaled_Shm.shape[1])
+        TranedModel = model.fit(X_subtrain_scaled_Shm, y_subtrain_Shm, validation_data=(X_val_scaled_Shm, y_val_Shm), epochs=epochs_Shm, batch_size=32, verbose=0)
         eval_result = model.evaluate(X_test_scaled_Shm, y_test_Shm, verbose=0)
         
         history_Shm[deg].append(TranedModel)
@@ -246,3 +295,5 @@ import os
 
 
 save_results_to_csv_Shm(scoreMean_shm, search_results, degrees, filename="temp_res_shmaliy.csv")
+for deg in degrees:
+    plot_cv_average_history_shm(history_Shm[deg], deg)
