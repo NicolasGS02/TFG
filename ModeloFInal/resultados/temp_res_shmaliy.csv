@@ -1,6 +1,0 @@
-Polinomio;Grado;Mejor_N;Loss_Promedio;Accuracy_Promedio
-Shmaliy;1;50;0.331139;0.86225
-Shmaliy;2;50;0.306472;0.872135
-Shmaliy;3;50;0.298333;0.879338
-Shmaliy;4;25;0.303912;0.879968
-Shmaliy;5;50;0.318619;0.877234
