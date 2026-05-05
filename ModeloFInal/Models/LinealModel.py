@@ -1,36 +1,27 @@
-#Primero de todo importamos las librerías necesarias para el proyecto
-
-#Librerias para la creacion de los modelos
+# ===== LIBRERÍAS =====
+import time
 import tensorflow as tf
 from tensorflow import keras
 from keras import layers
-from sklearn.preprocessing import MinMaxScaler
-
-#Librerias para la carga de los datos
+from sklearn.preprocessing import MinMaxScaler, LabelEncoder
 from ucimlrepo import fetch_ucirepo 
-
-#Libreria para dibujar graficos
 import matplotlib.pyplot as plt
-
-#Crear CSV
+import numpy as np
 import pandas as pd
 import os
+from sklearn.model_selection import StratifiedKFold, train_test_split
 
-#creamos el modelo de la red neuronal
-def create_model(input_dim):
-    x1 = keras.Input(shape=(input_dim,))
-    
-    x2 = layers.Dense(64, activation='relu')(x1)
 
-    x3 = layers.Dense(64, activation='relu')(x2)
+# ===== MODELO =====
+def create_model(input_dim, num_classes):
+    inputs = keras.Input(shape=(input_dim,))
     
-    output = layers.Dense(2, activation='softmax')(x3)
+    x = layers.Dense(32, activation='relu')(inputs)
+    x = layers.Dense(16, activation='relu')(x)
     
-    model = keras.Model(
-        inputs=x1,
-        outputs=output,
-        name='LinealModel'
-    )
+    outputs = layers.Dense(num_classes, activation='softmax')(x)
+    
+    model = keras.Model(inputs=inputs, outputs=outputs, name='LinearModel')
     
     model.compile(
         optimizer='adam',
@@ -40,89 +31,166 @@ def create_model(input_dim):
     
     return model
 
-# ===== FUNCIÓN DE PLOTEO =====
-def plot_training_history_leg(history_leg):
-    plt.figure(figsize=(12, 5))
-    
+
+# ===== PLOT =====
+def plot_cv_average_history(histories, save_folder="resultados/imagenes"):
+    os.makedirs(save_folder, exist_ok=True)
+
+    max_epochs = max(len(h.history["loss"]) for h in histories)
+    epochs = np.arange(1, max_epochs + 1)
+
+    def get_metric(metric):
+        matrix = np.full((len(histories), max_epochs), np.nan)
+        for i, h in enumerate(histories):
+            values = h.history[metric]
+            matrix[i, :len(values)] = values
+        return np.nanmean(matrix, axis=0)
+
+    avg_loss = get_metric("loss")
+    avg_val_loss = get_metric("val_loss")
+    avg_acc = get_metric("accuracy")
+    avg_val_acc = get_metric("val_accuracy")
+
+    plt.figure(figsize=(14, 6))
+
     plt.subplot(1, 2, 1)
-    plt.plot(history_leg.history['loss'], label='Pérdida entrenamiento')
-    plt.plot(history_leg.history['val_loss'], label='Pérdida validación')
-    plt.title('Pérdida')
-    plt.legend()
-    
+    plt.plot(epochs, avg_loss)
+    plt.plot(epochs, avg_val_loss)
+    plt.title("Pérdida Promedio - Modelo Lineal")
+
     plt.subplot(1, 2, 2)
-    plt.plot(history_leg.history['accuracy'], label='Precisión entrenamiento')
-    plt.plot(history_leg.history['val_accuracy'], label='Precisión validación')
-    plt.title('Precisión')
-    plt.legend()
-    
+    plt.plot(epochs, avg_acc)
+    plt.plot(epochs, avg_val_acc)
+    plt.title("Accuracy Promedio - Modelo Lineal")
+
     plt.tight_layout()
-    plt.show()
+    file_path = os.path.join(save_folder, "lineal.png")
+    plt.savefig(file_path, dpi=300, bbox_inches="tight")
+    plt.close()
 
 
-#Importamos el dataSet
-from sklearn.model_selection import StratifiedKFold
-from tqdm import tqdm
-import numpy as np
+# ===== DATOS =====
+dataset = fetch_ucirepo(id=53)
+
+X = dataset.data.features.to_numpy()
+y = dataset.data.targets.to_numpy()
 
 
-magic_gamma_telescope = fetch_ucirepo(id=159) 
-  
-X = magic_gamma_telescope.data.features 
-y = magic_gamma_telescope.data.targets 
+# ===== HIPERPARÁMETROS =====
+epochs = 400
+num_splits = 10
 
-X = X.to_numpy()
-y = y.to_numpy()
+skf = StratifiedKFold(n_splits=num_splits, shuffle=True, random_state=1)
 
-
-acurracy_scores = []
-
-skf = StratifiedKFold(n_splits=10, shuffle=True, random_state=42)
-
-for train_index, test_index in tqdm(skf.split(X, y), total=10):
+scores = []
+histories = []
+times = []
 
 
-    X_train, X_test = X[train_index], X[test_index]
-    y_train, y_test = y[train_index], y[test_index]
+# ===== CROSS VALIDATION =====
+for train_idx, test_idx in skf.split(X, y):
 
-    #Normalizamos los datos para que el entrenamiento sea más eficiente entre -1 y 1
-    scaler = MinMaxScaler(feature_range=(0, 1))
-    X_train_scaled = scaler.fit_transform(X_train)
-    X_test_scaled = scaler.transform(X_test)
+    # =========================
+    # 1) Split
+    # =========================
+    X_train, X_test = X[train_idx], X[test_idx]
+    y_train, y_test = y[train_idx], y[test_idx]
 
-    input_dim = X_train.shape[1]
+    # =========================
+    # 2) Label encoding (MULTICLASE)
+    # =========================
+    le = LabelEncoder()
+    y_train = le.fit_transform(y_train)
+    y_test = le.transform(y_test)
+
+    # =========================
+    # 3) Validación interna
+    # =========================
+    X_subtrain, X_val, y_subtrain, y_val = train_test_split(
+        X_train,
+        y_train,
+        test_size=0.3,
+        stratify=y_train,
+        random_state=42
+    )
+
+    # =========================
+    # 4) Normalización
+    # =========================
+    scaler = MinMaxScaler(feature_range=(-1, 1))
+
+    X_subtrain = scaler.fit_transform(X_subtrain)
+    X_val = scaler.transform(X_val)
+    X_test = scaler.transform(X_test)
+
+    # =========================
+    # 5) Modelo
+    # =========================
+    num_classes = len(np.unique(y_train))
+
+    tf.keras.backend.clear_session()
+    model = create_model(X_subtrain.shape[1], num_classes)
+
+    # =========================
+    # 6) Entrenamiento
+    # =========================
+    start = time.time()
+
+    history = model.fit(
+        X_subtrain,
+        y_subtrain,
+        validation_data=(X_val, y_val),
+        epochs=epochs,
+        batch_size=32,
+        verbose=0
+    )
+
+    end = time.time()
+
+    # =========================
+    # 7) Evaluación
+    # =========================
+    score = model.evaluate(X_test, y_test, verbose=0)
+
+    histories.append(history)
+    scores.append(score)
+    times.append(end - start)
 
 
-    #Cambiamos las etiquetas a 0 y 1
-    y_train = (y_train == 'g').astype(int)
-    y_test = (y_test == 'g').astype(int)
+# ===== RESULTADOS =====
+def calculator(scores, times):
+    total_loss, total_acc, total_time = 0, 0, 0
 
-    model = create_model(X_train_scaled.shape[1])
-    trained_model = model.fit(X_train_scaled, y_train, validation_split=0.2, epochs=120, batch_size=32, verbose=0)
-    eval_result = model.evaluate(X_test_scaled, y_test, verbose=0)
-    _, accuracy = eval_result
-    acurracy_scores.append(accuracy)
+    for (loss, acc), t in zip(scores, times):
+        total_loss += loss
+        total_acc += acc
+        total_time += t
+
+    return (
+        total_loss / num_splits,
+        total_acc / num_splits,
+        total_time / num_splits
+    )
+
+loss, acc, t = calculator(scores, times)
 
 
+# ===== GUARDADO CSV =====
+os.makedirs("resultados", exist_ok=True)
 
-# 1. Definimos la función con la estructura que pediste
-def save_results_to_csv_Lineal(avg_loss, avg_acc, filename="temp_res_lineal.csv"):
-    # Definir la ruta de la carpeta (un nivel arriba '..', carpeta 'resultados')
-    # O simplemente "resultados" si prefieres que esté en la misma carpeta
-    carpeta_destino = "resultados"
-    os.makedirs(carpeta_destino, exist_ok=True)
-    ruta_completa = os.path.join(carpeta_destino, filename)
-    
-    # Creamos la lista con el formato compatible
-    data = [{
-        "Polinomio": "Lineal/Dense",
-        "Grado": "N/A",
-        "Mejor_N": "N/A",
-        "Loss_Promedio": round(avg_loss, 6),
-        "Accuracy_Promedio": round(avg_acc, 6)
-    }]
-    
-    df_resultados = pd.DataFrame(data)
-    df_resultados.to_csv(ruta_completa, index=False, sep=';')
+data = [{
+    "Polinomio": "Lineal/Dense",
+    "Grado": "N/A",
+    "Mejor_N": "N/A",
+    "Loss_Promedio": round(loss, 8),
+    "Accuracy_Promedio": round(acc, 8),
+    "Tiempo_Promedio(s)": round(t, 2)
+}]
 
-save_results_to_csv_Lineal(np.mean(acurracy_scores), np.mean(acurracy_scores))
+pd.DataFrame(data).to_csv("resultados/resultados_lineal.csv", index=False, sep=';')
+
+
+# ===== GRÁFICAS =====
+plot_cv_average_history(histories)
+
+print("Proceso finalizado correctamente")

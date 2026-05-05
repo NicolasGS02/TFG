@@ -1,14 +1,15 @@
+# ===== LIBRERÍAS =====
+import time
 import tensorflow as tf
 from tensorflow import keras
 from keras import layers
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 from ucimlrepo import fetch_ucirepo
 from sklearn.model_selection import StratifiedKFold, train_test_split
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import os
-
 
 # ===== CAPA CHEBYSHEV =====
 class ChebyshevLayer(layers.Layer):
@@ -26,43 +27,51 @@ class ChebyshevLayer(layers.Layer):
         )
 
     def call(self, inputs):
-        previous_previous_poly = tf.ones_like(inputs)  # T0
-        previous_poly = inputs                         # T1
+        # T0 = 1
+        prev_prev = tf.ones_like(inputs)
 
-        output_values = (
-            tf.matmul(previous_previous_poly, self.w[0]) +
-            tf.matmul(previous_poly, self.w[1])
+        # T1 = x
+        prev = inputs
+
+        output = (
+            tf.matmul(prev_prev, self.w[0]) +
+            tf.matmul(prev, self.w[1])
         )
 
-        for degree_index in range(2, self.degree + 1):
-            current_poly = 2.0 * inputs * previous_poly - previous_previous_poly
-            output_values += tf.matmul(current_poly, self.w[degree_index])
+        # Recurrencia Chebyshev
+        for n in range(2, self.degree + 1):
+            current = 2.0 * inputs * prev - prev_prev
+            output += tf.matmul(current, self.w[n])
 
-            previous_previous_poly = previous_poly
-            previous_poly = current_poly
+            prev_prev = prev
+            prev = current
 
-        return output_values
+        return output
 
 
 # ===== MODELO =====
-def build_chebyshev_model(degree, input_dim):
+def build_chebyshev_model(degree, input_dim, num_classes):
     inputs = keras.Input(shape=(input_dim,))
-    x = ChebyshevLayer(32, degree=degree)(inputs)
+
+    x = ChebyshevLayer(64, degree=degree)(inputs)
     x = layers.Activation("swish")(x)
     x = layers.Dense(16, activation="swish")(x)
-    outputs = layers.Dense(2, activation="softmax")(x)
+
+    outputs = layers.Dense(num_classes, activation="softmax")(x)
 
     model = keras.Model(inputs=inputs, outputs=outputs)
+
     model.compile(
         optimizer="adam",
         loss="sparse_categorical_crossentropy",
         metrics=["accuracy"]
     )
+
     return model
 
 
 # ===== PLOT =====
-def plot_cv_average_history_cheb(histories, degree, save_folder="resultados/imagenes"):
+def save_image_plot(histories, degree, save_folder="resultados/imagenes"):
     os.makedirs(save_folder, exist_ok=True)
 
     max_epochs = max(len(h.history["loss"]) for h in histories)
@@ -93,56 +102,53 @@ def plot_cv_average_history_cheb(histories, degree, save_folder="resultados/imag
     plt.title(f"Accuracy Promedio - Chebyshev G{degree}")
 
     plt.tight_layout()
+
     file_path = os.path.join(save_folder, f"chebyshev_grado_{degree}.png")
     plt.savefig(file_path, dpi=300, bbox_inches="tight")
     plt.close()
 
 
-# ===== CSV =====
-def save_results_cheb( score_mean, degrees, filename="temp_res_chebyshev.csv"):
-    os.makedirs("resultados", exist_ok=True)
-
-    data = []
-    for deg in degrees:
-        data.append({
-            "Polinomio": "Chebyshev",
-            "Grado": deg,
-            "Mejor_N": "N/A",
-            "Loss_Promedio": round(score_mean[deg][0], 6),
-            "Accuracy_Promedio": round(score_mean[deg][1], 6)
-        })
-
-    pd.DataFrame(data).to_csv(
-        os.path.join("resultados", filename),
-        index=False,
-        sep=";"
-    )
+# ===== MÉTRICAS =====
+def calculator(scores, times):
+    loss = np.mean([s[0] for s in scores])
+    acc = np.mean([s[1] for s in scores])
+    t = np.mean(times)
+    return loss, acc, t
 
 
-# ===== EJECUCIÓN =====
-dataset = fetch_ucirepo(id=159)
+# ===== DATOS =====
+idDataset = 53
+dataset = fetch_ucirepo(id=idDataset)
+
 X = dataset.data.features.to_numpy()
 y = dataset.data.targets.to_numpy()
 
-degrees = [1,2,3,4,5]
-epochs = 120
+
+# ===== HIPERPARÁMETROS =====
+degrees = [2, 3, 4, 5, 6]
+epochs = 400
 num_splits = 10
 
 skf = StratifiedKFold(n_splits=num_splits, shuffle=True, random_state=1)
 
 scores = {deg: [] for deg in degrees}
 histories = {deg: [] for deg in degrees}
+times = {deg: [] for deg in degrees}
 
+
+# ===== CROSS VALIDATION =====
 for train_idx, test_idx in skf.split(X, y):
+
+    # Split
     X_train, X_test = X[train_idx], X[test_idx]
     y_train, y_test = y[train_idx], y[test_idx]
- 
-    y_train = (y_train == 'g').astype(int)
-    y_test = (y_test == 'g').astype(int)
 
-    # =========================
-    # 2) Validación interna estratificada
-    # =========================
+    # Codificación multiclase
+    le = LabelEncoder()
+    y_train = le.fit_transform(y_train)
+    y_test = le.transform(y_test)
+
+    # Validación interna
     X_subtrain, X_val, y_subtrain, y_val = train_test_split(
         X_train,
         y_train,
@@ -151,20 +157,22 @@ for train_idx, test_idx in skf.split(X, y):
         random_state=42
     )
 
-
-    # =========================
-    # 3) Normalización
-    # =========================
+    # Normalización
     scaler = MinMaxScaler(feature_range=(-1, 1))
-
     X_subtrain = scaler.fit_transform(X_subtrain)
     X_val = scaler.transform(X_val)
     X_test = scaler.transform(X_test)
 
+    # Nº clases dinámico
+    num_classes = len(np.unique(y_train))
+
+    # Entrenamiento por grado
     for deg in degrees:
         tf.keras.backend.clear_session()
 
-        model = build_chebyshev_model(deg, X_subtrain.shape[1])
+        model = build_chebyshev_model(deg, X_subtrain.shape[1], num_classes)
+
+        start = time.time()
 
         history = model.fit(
             X_subtrain,
@@ -175,20 +183,41 @@ for train_idx, test_idx in skf.split(X, y):
             verbose=0
         )
 
+        end = time.time()
+
         score = model.evaluate(X_test, y_test, verbose=0)
 
         histories[deg].append(history)
         scores[deg].append(score)
+        times[deg].append(end - start)
 
-score_mean = {
-    deg: (
-        np.mean([x[0] for x in scores[deg]]),
-        np.mean([x[1] for x in scores[deg]])
-    )
-    for deg in degrees
-}
 
-save_results_cheb(score_mean, degrees)
-
+# ===== RESULTADOS =====
+results = {}
 for deg in degrees:
-    plot_cv_average_history_cheb(histories[deg], deg)
+    results[deg] = calculator(scores[deg], times[deg])
+
+# ===== GUARDADO CSV =====
+os.makedirs("resultados", exist_ok=True)
+
+data = []
+for deg in degrees:
+    loss, acc, t = results[deg]
+
+    data.append({
+        "Polinomio": "Chebyshev",
+        "Grado": deg,
+        "Mejor_N": "N/A",
+        "Loss_Promedio": round(loss, 8),
+        "Accuracy_Promedio": round(acc, 8),
+        "Tiempo_Promedio(s)": round(t, 2)
+    })
+
+pd.DataFrame(data).to_csv("resultados/resultados_chebyshev.csv", index=False, sep=';')
+
+
+# ===== GRÁFICAS =====
+for deg in degrees:
+    save_image_plot(histories[deg], deg)
+
+print("Proceso finalizado correctamente")
