@@ -1,0 +1,4 @@
+Polinomio;Grado;Mejor_N;Loss_Promedio;Accuracy_Promedio;Tiempo_Promedio(s)
+Shmaliy;3;50;0.40217;0.8;20.22
+Shmaliy;5;25;0.534143;0.733333;20.64
+Shmaliy;10;250;3.019443;0.68;20.67

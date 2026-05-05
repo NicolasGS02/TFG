@@ -1,0 +1,4 @@
+Polinomio;Grado;Mejor_N;Loss_Promedio;Accuracy_Promedio;Tiempo_Promedio(s)
+Legendre_Specialist;3;N/A;0.087196;0.96;22.66
+Legendre_Specialist;5;N/A;0.143375;0.946667;22.61
+Legendre_Specialist;10;N/A;0.30737;0.946667;21.95
