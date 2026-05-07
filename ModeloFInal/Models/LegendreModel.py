@@ -127,14 +127,14 @@ def save_image_plot(histories, degree, save_folder="resultados/imagenes"):
     plt.close()
 
 # ===== DATOS =====
-idDataset = 53  # Cambia aquí
+idDataset = 159  # Cambia aquí
 dataset = fetch_ucirepo(id=idDataset)
 
 X = dataset.data.features.to_numpy()
 y = dataset.data.targets.to_numpy()
 
 # ===== HIPERPARÁMETROS =====
-epochs = 400
+epochs = 150
 batch_size = 32
 num_splits = 10
 degrees = [2, 3, 4, 5, 6]

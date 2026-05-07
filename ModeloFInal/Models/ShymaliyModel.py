@@ -62,7 +62,7 @@ def PolynomialDenseCreator_Shm(degree, N_value, input_dim, num_classes):
 
     x = ShmaliyLayer(64, degree=degree, N=N_value)(inputs)
     x = layers.Activation('swish')(x)
-    x = layers.Dense(16, activation='swish')(x)
+    x = layers.Dense(16, activation='relu')(x)
 
     output = layers.Dense(num_classes, activation='softmax')(x)
 
@@ -122,18 +122,18 @@ def plot_cv_average_history(histories, degree, save_folder="resultados/imagenes"
     plt.close()
 
 # ===== DATOS =====
-idDataset = 53  # Cambia aquí dataset
+idDataset = 159
 dataset = fetch_ucirepo(id=idDataset)
 
 X = dataset.data.features.to_numpy()
 y = dataset.data.targets.to_numpy()
 
 # ===== HIPERPARÁMETROS =====
-epochs = 400
+epochs = 150
 batch_size = 32
 num_splits = 10
 degrees = [2, 3, 4, 5, 6]
-N_candidates = [25, 50, 100, 250]
+N_candidates = [50, 100, 250]
 
 # ===== GRID SEARCH N =====
 search_results = {d: {} for d in degrees}

@@ -55,7 +55,7 @@ def build_chebyshev_model(degree, input_dim, num_classes):
 
     x = ChebyshevLayer(64, degree=degree)(inputs)
     x = layers.Activation("swish")(x)
-    x = layers.Dense(16, activation="swish")(x)
+    x = layers.Dense(16, activation="relu")(x)
 
     outputs = layers.Dense(num_classes, activation="softmax")(x)
 
@@ -117,7 +117,7 @@ def calculator(scores, times):
 
 
 # ===== DATOS =====
-idDataset = 53
+idDataset = 159
 dataset = fetch_ucirepo(id=idDataset)
 
 X = dataset.data.features.to_numpy()
@@ -126,7 +126,7 @@ y = dataset.data.targets.to_numpy()
 
 # ===== HIPERPARÁMETROS =====
 degrees = [2, 3, 4, 5, 6]
-epochs = 400
+epochs = 150
 num_splits = 10
 
 skf = StratifiedKFold(n_splits=num_splits, shuffle=True, random_state=1)

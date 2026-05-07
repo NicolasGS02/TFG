@@ -77,7 +77,7 @@ y = dataset.data.targets.to_numpy()
 
 
 # ===== HIPERPARÁMETROS =====
-epochs = 400
+epochs = 150
 num_splits = 10
 
 skf = StratifiedKFold(n_splits=num_splits, shuffle=True, random_state=1)
