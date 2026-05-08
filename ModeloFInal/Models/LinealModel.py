@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 import os
 from sklearn.model_selection import StratifiedKFold, train_test_split
+import gc
 
 
 # ===== MODELO =====
@@ -69,15 +70,24 @@ def plot_cv_average_history(histories, save_folder="resultados/imagenes"):
     plt.close()
 
 
+# ===== EARLY STOPPING =====
+def create_early_stopping(patience=15):
+    return keras.callbacks.EarlyStopping(
+        monitor="val_loss",
+        patience=patience,
+        restore_best_weights=True
+    )
+
+
 # ===== DATOS =====
-dataset = fetch_ucirepo(id=53)
+dataset = fetch_ucirepo(id=159)
 
 X = dataset.data.features.to_numpy()
 y = dataset.data.targets.to_numpy()
 
 
 # ===== HIPERPARÁMETROS =====
-epochs = 150
+epochs = 400
 num_splits = 10
 
 skf = StratifiedKFold(n_splits=num_splits, shuffle=True, random_state=1)
@@ -142,7 +152,8 @@ for train_idx, test_idx in skf.split(X, y):
         validation_data=(X_val, y_val),
         epochs=epochs,
         batch_size=32,
-        verbose=0
+        verbose=0,
+        callbacks=[create_early_stopping()]
     )
 
     end = time.time()
@@ -155,6 +166,9 @@ for train_idx, test_idx in skf.split(X, y):
     histories.append(history)
     scores.append(score)
     times.append(end - start)
+
+    del model
+    gc.collect()
 
 
 # ===== RESULTADOS =====

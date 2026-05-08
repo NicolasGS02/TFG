@@ -10,6 +10,7 @@ from ucimlrepo import fetch_ucirepo
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import gc
 
 # ===== CAPA LEGENDRE =====
 class PolynomialLegendre(tf.keras.layers.Layer):
@@ -134,7 +135,7 @@ X = dataset.data.features.to_numpy()
 y = dataset.data.targets.to_numpy()
 
 # ===== HIPERPARÁMETROS =====
-epochs = 150
+epochs = 400
 batch_size = 32
 num_splits = 10
 degrees = [2, 3, 4, 5, 6]
@@ -187,6 +188,7 @@ for train_idx, test_idx in skf.split(X, y):
             epochs=epochs,
             batch_size=batch_size,
             verbose=0,
+            callbacks=[createEarlyStopping()],
         )
 
         end = time.time()
@@ -196,6 +198,9 @@ for train_idx, test_idx in skf.split(X, y):
         history[deg].append(hist)
         scores[deg].append(result)
         times[deg].append(end - start)
+
+        del model
+        gc.collect()
 
 # ===== RESULTADOS =====
 results = {}

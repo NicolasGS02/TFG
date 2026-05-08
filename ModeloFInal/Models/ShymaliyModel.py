@@ -10,6 +10,7 @@ from ucimlrepo import fetch_ucirepo
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import gc
 
 # ===== CAPA SHMALIY =====
 class ShmaliyLayer(layers.Layer):
@@ -129,11 +130,11 @@ X = dataset.data.features.to_numpy()
 y = dataset.data.targets.to_numpy()
 
 # ===== HIPERPARÁMETROS =====
-epochs = 150
+epochs = 400
 batch_size = 32
 num_splits = 10
 degrees = [2, 3, 4, 5, 6]
-N_candidates = [50, 100, 250]
+N_candidates = [25, 50, 100, 250]
 
 # ===== GRID SEARCH N =====
 search_results = {d: {} for d in degrees}
@@ -172,6 +173,9 @@ for deg in degrees:
 
             _, acc = model.evaluate(X_test, y_test, verbose=0)
             accs.append(acc)
+
+            del model
+            gc.collect()
 
         search_results[deg][n_val] = np.mean(accs)
 
@@ -234,6 +238,9 @@ for train_idx, test_idx in skf.split(X, y):
         history[deg].append(hist)
         scores[deg].append(result)
         times[deg].append(end - start)
+
+        del model
+        gc.collect()
 
 # ===== RESULTADOS =====
 results = {}

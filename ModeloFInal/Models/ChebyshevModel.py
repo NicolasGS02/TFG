@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import os
+import gc
 
 # ===== CAPA CHEBYSHEV =====
 class ChebyshevLayer(layers.Layer):
@@ -116,6 +117,15 @@ def calculator(scores, times):
     return loss, acc, t
 
 
+# ===== EARLY STOPPING =====
+def create_early_stopping(patience=15):
+    return keras.callbacks.EarlyStopping(
+        monitor="val_loss",
+        patience=patience,
+        restore_best_weights=True
+    )
+
+
 # ===== DATOS =====
 idDataset = 159
 dataset = fetch_ucirepo(id=idDataset)
@@ -126,7 +136,7 @@ y = dataset.data.targets.to_numpy()
 
 # ===== HIPERPARÁMETROS =====
 degrees = [2, 3, 4, 5, 6]
-epochs = 150
+epochs = 400
 num_splits = 10
 
 skf = StratifiedKFold(n_splits=num_splits, shuffle=True, random_state=1)
@@ -180,7 +190,8 @@ for train_idx, test_idx in skf.split(X, y):
             validation_data=(X_val, y_val),
             epochs=epochs,
             batch_size=32,
-            verbose=0
+            verbose=0,
+            callbacks=[create_early_stopping()]
         )
 
         end = time.time()
@@ -190,6 +201,9 @@ for train_idx, test_idx in skf.split(X, y):
         histories[deg].append(history)
         scores[deg].append(score)
         times[deg].append(end - start)
+
+        del model
+        gc.collect()
 
 
 # ===== RESULTADOS =====
