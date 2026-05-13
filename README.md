@@ -6,7 +6,7 @@ Este repositorio incluye el código y el entorno necesario para ejecutar todos l
 
 Las rutas importantes dentro del proyecto son:
 
-* `TFG/EntonroConda/Polynomial_Env.yml` → archivo del entorno Conda
+* `TFG/EntornoConda/Polynomial_Env.yml` → archivo del entorno Conda
 * `TFG/ModeloFinal/PolynomialExecutionAll.py` → script principal para ejecutar todos los modelos en paralelo
 
 ---
@@ -25,7 +25,7 @@ Antes de ejecutar el proyecto, es necesario instalar el entorno Conda incluido e
 Desde la raíz del repositorio, ejecuta:
 
 ```bash
-conda env create -f TFG/EntonroConda/Polynomial_Env.yml
+conda env create -f TFG/EntornoConda/Polynomial_Env.yml
 ```
 
 Esto creará automáticamente el entorno con todas las librerías y versiones necesarias.
@@ -50,14 +50,14 @@ Para lanzar la ejecución completa de todos los modelos, debes:
 
 1. Abrir una terminal **CMD**
 2. Asegurarte de estar dentro del entorno `Polynomial_Env`
-3. Ir a la carpeta `TFG\ModeloFinal`
+3. Ir a la carpeta `TFG\codigo`
 4. Ejecutar el script principal con Python
 
 ### Comandos
 
 ```bash
-cd TFG/ModeloFinal
-python PolynomialExecutionAll.py
+cd TFG/codigo
+python main.py
 ```
 
 Este script se encarga de **ejecutar todos los modelos de forma paralela meidante hilos**, utilizando la configuración preparada en el entorno Conda.
@@ -69,8 +69,8 @@ Este script se encarga de **ejecutar todos los modelos de forma paralela meidant
 Si quieres realizar todo el proceso seguido, estos serían los comandos completos:
 
 ```bash
-conda env create -f TFG/EntonroConda/Polynomial_Env.yml
+conda env create -f TFG/EntornoConda/Polynomial_Env.yml
 conda activate Polynomial_Env
-cd TFG/ModeloFinal
-python PolynomialExecutionAll.py
+cd TFG/codigo
+python main.py
 ```
