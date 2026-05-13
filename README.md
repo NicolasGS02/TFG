@@ -7,7 +7,7 @@ Este repositorio incluye el código y el entorno necesario para ejecutar todos l
 Las rutas importantes dentro del proyecto son:
 
 * `TFG/EntornoConda/Polynomial_Env.yml` → archivo del entorno Conda
-* `TFG/ModeloFinal/PolynomialExecutionAll.py` → script principal para ejecutar todos los modelos en paralelo
+* `TFG/codigo/main.py` → script principal para ejecutar todos los modelos en paralelo
 
 ---
 
