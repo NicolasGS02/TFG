@@ -1,34 +1,47 @@
-# README - Ejecución del proyecto
+# README - Ejecución del Proyecto
 
-Este repositorio incluye el código y el entorno necesario para ejecutar todos los modelos en **Python** de forma reproducible.
+Este repositorio incluye el código y el entorno necesario para ejecutar los modelos de redes neuronales polinómicas en **Python** de forma reproducible.
 
-## 📁 Estructura relevante
+## 📁 Estructura del Proyecto
 
-Las rutas importantes dentro del proyecto son:
+Las rutas y archivos principales dentro del repositorio son:
 
+<<<<<<< Updated upstream
 * `TFG/EntornoConda/Polynomial_Env.yml` → archivo del entorno Conda
 * `TFG/codigo/main.py` → script principal para ejecutar todos los modelos en paralelo
+=======
+* `EntornoConda/Polynomial_Env.yml` → Archivo de configuración del entorno Conda.
+* `main.py` → Script principal para ejecutar la experimentación con los modelos.
+* `models.py` → Definición de los diferentes modelos y validación cruzada.
+* `data_utils.py` → Utilidades para la carga y gestión de conjuntos de datos.
+* `metrics_utils.py` → Funciones de cálculo de métricas de rendimiento.
+* `plot_utils.py` → Utilidades para la generación de gráficas y visualización.
+>>>>>>> Stashed changes
 
 ---
 
 ## ⚙️ 1) Crear e instalar el entorno de trabajo
 
-Antes de ejecutar el proyecto, es necesario instalar el entorno Conda incluido en el repositorio.
+Antes de ejecutar el proyecto, es necesario instalar el entorno Conda incluido.
 
 ### Requisitos previos
 
-* Tener instalado **Anaconda** o **Miniconda**
-* Tener acceso a una terminal (`CMD`, PowerShell o Anaconda Prompt)
+* Tener instalado **Anaconda** o **Miniconda**.
+* Acceso a una terminal (`CMD`, PowerShell o Anaconda Prompt).
 
 ### Comando de instalación
 
 Desde la raíz del repositorio, ejecuta:
 
 ```bash
+<<<<<<< Updated upstream
 conda env create -f TFG/EntornoConda/Polynomial_Env.yml
+=======
+conda env create -f EntornoConda/Polynomial_Env.yml
+>>>>>>> Stashed changes
 ```
 
-Esto creará automáticamente el entorno con todas las librerías y versiones necesarias.
+Esto creará automáticamente el entorno con todas las dependencias y versiones necesarias.
 
 ---
 
@@ -40,14 +53,13 @@ Una vez creado, activa el entorno con:
 conda activate Polynomial_Env
 ```
 
-> **Nota:** si el nombre del entorno definido dentro del archivo `.yml` es diferente, utiliza ese nombre en lugar de `Polynomial_Env`.
-
 ---
 
-## 🚀 3) Ejecutar todos los modelos en paralelo
+## 🚀 3) Ejecutar el proyecto
 
-Para lanzar la ejecución completa de todos los modelos, debes:
+Para lanzar la ejecución de los modelos:
 
+<<<<<<< Updated upstream
 1. Abrir una terminal **CMD**
 2. Asegurarte de estar dentro del entorno `Polynomial_Env`
 3. Ir a la carpeta `TFG\codigo`
@@ -57,20 +69,32 @@ Para lanzar la ejecución completa de todos los modelos, debes:
 
 ```bash
 cd TFG/codigo
+=======
+1. Abre tu terminal y asegúrate de estar dentro del entorno `Polynomial_Env`.
+2. Sitúate en la raíz del repositorio.
+3. Ejecuta el script principal con Python:
+
+```bash
+>>>>>>> Stashed changes
 python main.py
 ```
 
-Este script se encarga de **ejecutar todos los modelos de forma paralela meidante hilos**, utilizando la configuración preparada en el entorno Conda.
+El script se encarga de procesar los conjuntos de datos, entrenar los diferentes modelos (Lineal, Chebyshev, Legendre y Shmaliy) utilizando validación cruzada y guardar los resultados y gráficas generadas.
 
 ---
 
-## 💡 Ejecución recomendada (flujo completo)
+## 💡 Flujo de ejecución completo
 
-Si quieres realizar todo el proceso seguido, estos serían los comandos completos:
+Si deseas realizar todo el proceso desde cero:
 
 ```bash
+<<<<<<< Updated upstream
 conda env create -f TFG/EntornoConda/Polynomial_Env.yml
 conda activate Polynomial_Env
 cd TFG/codigo
+=======
+conda env create -f EntornoConda/Polynomial_Env.yml
+conda activate Polynomial_Env
+>>>>>>> Stashed changes
 python main.py
 ```

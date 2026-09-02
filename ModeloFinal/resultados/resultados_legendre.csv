@@ -1,6 +1,0 @@
-Polinomio;Grado;Mejor_N;Loss_Promedio;Accuracy_Promedio;Tiempo_Promedio(s)
-Legendre;2;N/A;0.30504397;0.87497371;60.47
-Legendre;3;N/A;0.29798377;0.87902209;48.78
-Legendre;4;N/A;0.30165311;0.87797056;41.2
-Legendre;5;N/A;0.30217899;0.87870663;34.68
-Legendre;6;N/A;0.30093259;0.87728707;33.23
