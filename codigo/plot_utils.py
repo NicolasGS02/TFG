@@ -7,6 +7,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 
+# Guardar grafica
 def plot_history(histories, title, file_path):
     if not histories:
         return
@@ -16,10 +17,10 @@ def plot_history(histories, title, file_path):
         return
 
     epochs = np.arange(1, max_epochs + 1)
-    avg_loss = _average_metric(histories, "loss", max_epochs)
-    avg_val_loss = _average_metric(histories, "val_loss", max_epochs)
-    avg_acc = _average_metric(histories, "accuracy", max_epochs)
-    avg_val_acc = _average_metric(histories, "val_accuracy", max_epochs)
+    avg_loss = average_metric(histories, "loss", max_epochs)
+    avg_val_loss = average_metric(histories, "val_loss", max_epochs)
+    avg_acc = average_metric(histories, "accuracy", max_epochs)
+    avg_val_acc = average_metric(histories, "val_accuracy", max_epochs)
 
     plt.figure(figsize=(12, 5))
 
@@ -45,7 +46,8 @@ def plot_history(histories, title, file_path):
     plt.close()
 
 
-def _average_metric(histories, key, max_epochs):
+# Promedio de metrica entre folds
+def average_metric(histories, key, max_epochs):
     matrix = np.full((len(histories), max_epochs), np.nan)
     for i, h in enumerate(histories):
         values = h.history.get(key, [])

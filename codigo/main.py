@@ -30,14 +30,14 @@ IMAGES_PATH = os.path.join(BASE_DIR, "imagenes")
 
 # Hiperparametros
 N_FOLDS = 10
-EPOCHS = 400 #Como se tiene el early stop, se puede dejar un numero alto para asegurar que se alcance la convergencia
+EPOCHS = 400 #Se puede dejar un numero alto para asegurar que se alcance la convergencia aprovechando el early stop.
 BATCH_SIZE = 32
 PATIENCE = 20
 
 # Grados a estudiar
-CHEBYSHEV_DEGREES = [2, 3, 4, 5, 6]
-LEGENDRE_DEGREES = [2, 3, 4, 5, 6]
-SHMALIY_DEGREES = [2, 3, 4, 5, 6]
+CHEBYSHEV_DEGREES = [3, 5, 7]
+LEGENDRE_DEGREES = [3, 5, 7]
+SHMALIY_DEGREES = [3, 5, 7]
 SHMALIY_N_CANDIDATES = [25, 50, 100, 250]
 
 

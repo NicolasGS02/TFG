@@ -51,11 +51,11 @@ class PolynomialLegendre(layers.Layer):
         self.use_bias = use_bias
 
     def build(self, input_shape):
-        input_dim = input_shape[-1]
-        self.kernel = self.add_weight(
-            shape=(input_dim * self.degree, self.units),
+        self.w = self.add_weight(
+            shape=(self.degree + 1, input_shape[-1], self.units),
             initializer="glorot_uniform",
-            trainable=True
+            trainable=True,
+            name="legendre_weights"
         )
         if self.use_bias:
             self.bias = self.add_weight(
@@ -69,16 +69,17 @@ class PolynomialLegendre(layers.Layer):
         prev_prev = tf.ones_like(x)
         prev = x
 
-        features = [prev]
-        for n in range(2, self.degree + 1):
-            n = tf.cast(n, self.compute_dtype)
+        output = (
+            tf.matmul(prev_prev, self.w[0]) +
+            tf.matmul(prev, self.w[1])
+        )
+
+        for i in range(2, self.degree + 1):
+            n = tf.cast(i, self.compute_dtype)
             current = ((2 * n - 1) * x * prev - (n - 1) * prev_prev) / n
-            features.append(current)
+            output += tf.matmul(current, self.w[i])
             prev_prev = prev
             prev = current
-
-        basis = tf.concat(features, axis=-1)
-        output = tf.matmul(basis, self.kernel)
         if self.use_bias:
             output = tf.nn.bias_add(output, self.bias)
         return output
@@ -132,8 +133,8 @@ def create_early_stopping(patience=15):
 
 def build_lineal_model(input_dim, num_classes):
     inputs = keras.Input(shape=(input_dim,))
-    x = layers.Dense(32, activation="relu")(inputs)
-    x = layers.Dense(16, activation="relu")(x)
+    x = layers.Dense(64, activation="relu")(inputs)
+    x = layers.Dense(32, activation="relu")(x)
     outputs = layers.Dense(num_classes, activation="softmax")(x)
     model = keras.Model(inputs=inputs, outputs=outputs, name="LinealModel")
     model.compile(
@@ -148,7 +149,7 @@ def build_chebyshev_model(degree, input_dim, num_classes):
     inputs = keras.Input(shape=(input_dim,))
     x = ChebyshevLayer(64, degree=degree)(inputs)
     x = layers.Activation("swish")(x)
-    x = layers.Dense(16, activation="relu")(x)
+    x = layers.Dense(32, activation="relu")(x)
     outputs = layers.Dense(num_classes, activation="softmax")(x)
     model = keras.Model(inputs=inputs, outputs=outputs)
     model.compile(
@@ -163,7 +164,7 @@ def build_legendre_model(degree, input_dim, num_classes):
     inputs = keras.Input(shape=(input_dim,))
     x = PolynomialLegendre(64, degree=degree)(inputs)
     x = layers.Activation("swish")(x)
-    x = layers.Dense(16, activation="relu")(x)
+    x = layers.Dense(32, activation="relu")(x)
     outputs = layers.Dense(num_classes, activation="softmax")(x)
     model = keras.Model(inputs=inputs, outputs=outputs)
     model.compile(
@@ -178,7 +179,7 @@ def build_shmaliy_model(degree, n_value, input_dim, num_classes):
     inputs = keras.Input(shape=(input_dim,))
     x = ShmaliyLayer(64, degree=degree, N=n_value)(inputs)
     x = layers.Activation("swish")(x)
-    x = layers.Dense(16, activation="relu")(x)
+    x = layers.Dense(32, activation="relu")(x)
     outputs = layers.Dense(num_classes, activation="softmax")(x)
     model = keras.Model(inputs=inputs, outputs=outputs)
     model.compile(

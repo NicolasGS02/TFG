@@ -2,6 +2,7 @@ import numpy as np
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 
 
+# Calcular metricas
 def calculate_metrics(y_true, y_pred):
     return {
         "accuracy": accuracy_score(y_true, y_pred),
@@ -11,6 +12,7 @@ def calculate_metrics(y_true, y_pred):
     }
 
 
+# Sacar promedios de metricas
 def summarize_metrics(metrics_list):
     summary = {}
     if not metrics_list:
